@@ -1,54 +1,60 @@
 "use client";
 
 import { useState } from "react";
-import api from "@/lib/api";
+
+import Sidebar from "@/components/Sidebar";
+
+import ChatPanel from "@/components/ChatPanel";
+import CollectionPanel from "@/components/CollectionPanel";
+import UploadPanel from "@/components/UploadPanel";
+import GithubPanel from "@/components/GithubPanel";
+import SettingsPanel from "@/components/SettingsPanel";
 
 export default function Home() {
 
-  const [question, setQuestion] =
-      useState("");
+    const [panel, setPanel] =
+        useState("Chat");
 
-  const [answer, setAnswer] =
-      useState("");
+    return (
 
-  async function ask() {
+        <div
+            style={{
+                display: "flex",
+                height: "100vh"
+            }}
+        >
 
-    const response =
-      await api.get("/ask", {
-        params: {
-          question
-        }
-      });
+            <Sidebar
+                selected={panel}
+                onSelect={setPanel}
+            />
 
-    setAnswer(response.data);
-  }
+            <div
+                style={{
+                    flex: 1,
+                    padding: 30
+                }}
+            >
 
-  return (
-    <div className="p-10">
+                {panel === "Chat" &&
+                    <ChatPanel />}
 
-      <h1 className="text-3xl">
-        Engineering Bench
-      </h1>
+                {panel === "Collections" &&
+                    <CollectionPanel />}
 
-      <textarea
-        className="border w-full h-32 p-2"
-        placeholder="Ask a question..."
-        value={question}
-        onChange={(e) =>
-          setQuestion(e.target.value)}
-      />
+                {panel === "Upload" &&
+                    <UploadPanel />}
 
-      <button
-        className="border px-4 py-2 mt-2"
-        onClick={ask}
-      >
-        Ask
-      </button>
+                {panel === "GitHub" &&
+                    <GithubPanel />}
 
-      <pre>
-        {answer}
-      </pre>
+                {panel === "Settings" &&
+                    <SettingsPanel />}
 
-    </div>
-  );
+            </div>
+
+        </div>
+
+    );
+
 }
