@@ -1,60 +1,126 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import api from "@/lib/api";
 
-import Sidebar from "@/components/Sidebar";
-
-import ChatPanel from "@/components/ChatPanel";
-import CollectionPanel from "@/components/CollectionPanel";
-import UploadPanel from "@/components/UploadPanel";
+import CollectionsPanel from "@/components/CollectionPanel";
 import GithubPanel from "@/components/GithubPanel";
-import SettingsPanel from "@/components/SettingsPanel";
+import UploadPanel from "@/components/UploadPanel";
+import ChatPanel from "@/components/ChatPanel";
 
 export default function Home() {
 
-    const [panel, setPanel] =
-        useState("Chat");
+    const [collections, setCollections] =
+        useState<string[]>([]);
+
+    const [activePanel, setActivePanel] =
+        useState("collections");
+
+    async function loadCollections() {
+
+        try {
+
+            const response =
+                await api.get("/collections");
+
+            setCollections(response.data);
+
+        } catch (error) {
+
+            console.error(
+                "Failed to load collections",
+                error
+            );
+        }
+    }
+
+    useEffect(() => {
+        loadCollections();
+    }, []);
 
     return (
+        <div className="flex min-h-screen">
 
-        <div
-            style={{
-                display: "flex",
-                height: "100vh"
-            }}
-        >
+            {/* Sidebar */}
 
-            <Sidebar
-                selected={panel}
-                onSelect={setPanel}
-            />
+            <aside className="w-60 border-r p-5">
 
-            <div
-                style={{
-                    flex: 1,
-                    padding: 30
-                }}
-            >
+                <h1 className="text-xl font-bold mb-8">
+                    Engineering Bench
+                </h1>
 
-                {panel === "Chat" &&
-                    <ChatPanel />}
+                <button
+                    className="block w-full text-left p-3 mb-2"
+                    onClick={() =>
+                        setActivePanel("collections")
+                    }
+                >
+                    Collections
+                </button>
 
-                {panel === "Collections" &&
-                    <CollectionPanel />}
+                <button
+                    className="block w-full text-left p-3 mb-2"
+                    onClick={() =>
+                        setActivePanel("upload")
+                    }
+                >
+                    Upload
+                </button>
 
-                {panel === "Upload" &&
-                    <UploadPanel />}
+                <button
+                    className="block w-full text-left p-3 mb-2"
+                    onClick={() =>
+                        setActivePanel("github")
+                    }
+                >
+                    GitHub
+                </button>
 
-                {panel === "GitHub" &&
-                    <GithubPanel />}
+                <button
+                    className="block w-full text-left p-3 mb-2"
+                    onClick={() =>
+                        setActivePanel("chat")
+                    }
+                >
+                    Chat
+                </button>
 
-                {panel === "Settings" &&
-                    <SettingsPanel />}
+            </aside>
 
-            </div>
+
+            {/* Main panel */}
+
+            <main className="flex-1 p-10">
+
+                {activePanel === "collections" && (
+                    <CollectionsPanel
+                        collections={collections}
+                        onCollectionsChanged={
+                            loadCollections
+                        }
+                    />
+                )}
+
+                {activePanel === "github" && (
+                    <GithubPanel
+                        collections={collections}
+                    />
+                )}
+
+                {activePanel === "upload" && (
+                    <UploadPanel
+                        collections={collections}
+                    />
+                )}
+
+                {activePanel === "chat" && (
+                    <ChatPanel
+                        collections={collections}
+                    />
+                )}
+
+            </main>
 
         </div>
-
     );
-
 }
