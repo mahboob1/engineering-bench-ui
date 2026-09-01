@@ -457,7 +457,7 @@ export default function ChatPanel({
                 >
                     {loading
                         ? "Thinking..."
-                        : "Ask"}
+                        : "Chat"}
                 </button>
 
 
@@ -473,7 +473,7 @@ export default function ChatPanel({
                 >
                     {loading
                         ? "Thinking..."
-                        : "Chat"}
+                        : "Chat+History "}
                 </button>
 
             </div>
