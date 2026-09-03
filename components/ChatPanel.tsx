@@ -37,6 +37,8 @@ export default function ChatPanel({
     const [error, setError] =
         useState("");
 
+    const [mode, setMode] = useState<"ask" | "chat" | "analyze">("ask");
+
 
     /*
      * Create chat session.
@@ -263,6 +265,66 @@ export default function ChatPanel({
     }
 
 
+    async function analyze() {
+    if (!collection) {
+        setError("Please select a collection.");
+        return;
+    }
+
+    if (!question.trim()) {
+        setError("Please enter an analysis question.");
+        return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    const currentQuestion = question.trim();
+
+    try {
+        const response = await api.post(
+            "/analyze",
+            {
+                sessionId,
+                repository: repository || undefined,
+                question: currentQuestion
+            },
+            {
+                params: {
+                    collection
+                }
+            }
+        );
+
+        const answer = response.data;
+
+        setMessages(previous => [
+            ...previous,
+            {
+                role: "user",
+                content: currentQuestion
+            },
+            {
+                role: "assistant",
+                content: answer
+            }
+        ]);
+
+        setQuestion("");
+
+    } catch (error) {
+        console.error(error);
+
+        setError(
+            "Unable to analyze the codebase."
+        );
+
+    } finally {
+        setLoading(false);
+    }
+}
+
+
     /*
      * Enter = Chat
      * Shift + Enter = new line
@@ -278,7 +340,13 @@ export default function ChatPanel({
 
             e.preventDefault();
 
-            chat();
+            if (mode === "ask") {
+                ask();
+            } else if (mode === "chat") {
+                chat();
+            } else {
+                analyze();
+            }
         }
     }
 
@@ -321,7 +389,7 @@ export default function ChatPanel({
             <div className="flex justify-between items-center mb-6">
 
                 <h2 className="text-2xl font-semibold">
-                    Chat
+                    Engineering Bench
                 </h2>
 
                 <button
@@ -367,6 +435,37 @@ export default function ChatPanel({
                     )
                 )}
 
+            </select>
+
+            {/* Mode */}
+
+            <label className="block mb-2 font-medium">
+                Mode
+            </label>
+
+            <select
+                className="border p-2 w-full mb-5"
+                value={mode}
+                onChange={e =>
+                    setMode(
+                        e.target.value as
+                            "ask"
+                            | "chat"
+                            | "analyze"
+                    )
+                }
+            >
+                <option value="ask">
+                    Chat
+                </option>
+
+                <option value="chat">
+                    Chat + History
+                </option>
+
+                <option value="analyze">
+                    Analyze
+                </option>
             </select>
 
 
@@ -431,7 +530,11 @@ export default function ChatPanel({
 
             <textarea
                 className="border w-full h-28 p-3 mb-3"
-                placeholder="Ask a question..."
+                placeholder={
+                    mode === "analyze"
+                        ? "Describe the feature or engineering problem you want to analyze..."
+                        : "Ask a question..."
+                }
                 value={question}
                 onChange={e =>
                     setQuestion(
@@ -442,7 +545,7 @@ export default function ChatPanel({
             />
 
 
-            {/* Buttons */}
+           {/* Submit */}
 
             <div className="flex gap-3">
 
@@ -451,29 +554,26 @@ export default function ChatPanel({
                     disabled={
                         loading ||
                         !collection ||
-                        !question.trim()
-                    }
-                    onClick={ask}
-                >
-                    {loading
-                        ? "Thinking..."
-                        : "Chat"}
-                </button>
-
-
-                <button
-                    className="border px-5 py-2"
-                    disabled={
-                        loading ||
-                        !collection ||
                         !question.trim() ||
-                        !sessionId
+                        (mode === "chat" && !sessionId)
                     }
-                    onClick={chat}
+                    onClick={() => {
+                        if (mode === "ask") {
+                            ask();
+                        } else if (mode === "chat") {
+                            chat();
+                        } else {
+                            analyze();
+                        }
+                    }}
                 >
                     {loading
                         ? "Thinking..."
-                        : "Chat+History "}
+                        : mode === "analyze"
+                            ? "Analyze Codebase"
+                            : mode === "chat"
+                                ? "Chat"
+                                : "Ask"}
                 </button>
 
             </div>
