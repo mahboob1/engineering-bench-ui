@@ -7,6 +7,7 @@ import CollectionsPanel from "@/components/CollectionPanel";
 import GithubPanel from "@/components/GithubPanel";
 import UploadPanel from "@/components/UploadPanel";
 import ChatPanel from "@/components/ChatPanel";
+import WorkspaceTaskList from "@/components/WorkspaceTaskList";
 
 export default function Home() {
 
@@ -85,6 +86,15 @@ export default function Home() {
                     Chat
                 </button>
 
+                <button
+                    className="block w-full text-left p-3 mb-2"
+                    onClick={() =>
+                        setActivePanel("tasks")
+                    }
+                >
+                    Tasks
+                </button>
+
             </aside>
 
 
@@ -116,6 +126,12 @@ export default function Home() {
                 {activePanel === "chat" && (
                     <ChatPanel
                         collections={collections}
+                    />
+                )}
+
+                {activePanel === "tasks" && (
+                    <WorkspaceTaskList
+                        workspaceId="workspace-ui-001"
                     />
                 )}
 
