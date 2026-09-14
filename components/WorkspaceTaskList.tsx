@@ -24,46 +24,82 @@ export default function WorkspaceTaskList({
     const [error, setError] =
         useState<string | null>(null);
 
-    useEffect(() => {
+    const [executingTaskId, setExecutingTaskId] =
+        useState<string | null>(null);
 
-        async function loadTasks() {
+    async function loadTasks() {
 
-            try {
+        try {
 
-                setLoading(true);
-                setError(null);
+            setLoading(true);
+            setError(null);
 
-                const response =
-                    await api.get(
-                        `/workspace-tasks/workspace/${workspaceId}`
-                    );
-
-                setTasks(response.data);
-
-            } catch (error) {
-
-                console.error(
-                    "Failed to load workspace tasks",
-                    error
+            const response =
+                await api.get(
+                    `/workspace-tasks/workspace/${workspaceId}`
                 );
 
-                setError(
-                    "Failed to load workspace tasks."
-                );
+            setTasks(response.data);
 
-            } finally {
+        } catch (error) {
 
-                setLoading(false);
-            }
+            console.error(
+                "Failed to load workspace tasks",
+                error
+            );
+
+            setError(
+                "Failed to load workspace tasks."
+            );
+
+        } finally {
+
+            setLoading(false);
         }
+    }
+
+    useEffect(() => {
 
         loadTasks();
 
     }, [workspaceId]);
 
+    async function executeTask(taskId: string) {
+
+        try {
+
+            setExecutingTaskId(taskId);
+            setError(null);
+
+            await api.post(
+                `/workspace-tasks/${taskId}/execute`
+            );
+
+            await loadTasks();
+
+        } catch (error) {
+
+            console.error(
+                "Failed to execute workspace task",
+                error
+            );
+
+            setError(
+                "Failed to execute workspace task."
+            );
+
+            await loadTasks();
+
+        } finally {
+
+            setExecutingTaskId(null);
+        }
+    }
+
     if (loading) {
         return (
             <div>
+
                 <h2 className="text-2xl font-bold mb-4">
                     Workspace Tasks
                 </h2>
@@ -71,6 +107,7 @@ export default function WorkspaceTaskList({
                 <p>
                     Loading tasks...
                 </p>
+
             </div>
         );
     }
@@ -78,6 +115,7 @@ export default function WorkspaceTaskList({
     if (error) {
         return (
             <div>
+
                 <h2 className="text-2xl font-bold mb-4">
                     Workspace Tasks
                 </h2>
@@ -85,6 +123,7 @@ export default function WorkspaceTaskList({
                 <p>
                     {error}
                 </p>
+
             </div>
         );
     }
@@ -121,6 +160,20 @@ export default function WorkspaceTaskList({
                             <div className="text-sm mt-2">
                                 Status: {task.status}
                             </div>
+
+                            <button
+                                className="mt-3 border rounded px-3 py-1"
+                                onClick={() =>
+                                    executeTask(task.id)
+                                }
+                                disabled={
+                                    executingTaskId === task.id
+                                }
+                            >
+                                {executingTaskId === task.id
+                                    ? "Executing..."
+                                    : "Execute"}
+                            </button>
 
                         </div>
 
