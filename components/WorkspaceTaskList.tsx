@@ -11,6 +11,11 @@ interface WorkspaceTaskListProps {
     workspaceId: string;
 }
 
+interface WorkspaceTaskResult {
+    taskId: string;
+    output: string;
+}
+
 export default function WorkspaceTaskList({
     workspaceId,
 }: WorkspaceTaskListProps) {
@@ -26,6 +31,61 @@ export default function WorkspaceTaskList({
 
     const [executingTaskId, setExecutingTaskId] =
         useState<string | null>(null);
+
+    const [results, setResults] =
+        useState<Record<string, WorkspaceTaskResult>>({});
+
+    const [loadingResultTaskId, setLoadingResultTaskId] =
+        useState<string | null>(null);
+
+    const [newTask, setNewTask] = useState("");
+
+    const [creatingTask, setCreatingTask] =
+        useState(false);
+
+    async function createTask() {
+
+    if (!newTask.trim()) {
+        return;
+    }
+
+    try {
+
+        setCreatingTask(true);
+        setError(null);
+
+        const taskId =
+            `task-${Date.now()}`;
+
+        await api.post(
+            "/workspace-tasks",
+            {
+                id: taskId,
+                workspaceId: workspaceId,
+                task: newTask.trim(),
+            }
+        );
+
+        setNewTask("");
+
+        await loadTasks();
+
+    } catch (error) {
+
+        console.error(
+            "Failed to create workspace task",
+            error
+        );
+
+        setError(
+            "Failed to create workspace task."
+        );
+
+    } finally {
+
+        setCreatingTask(false);
+    }
+}
 
     async function loadTasks() {
 
@@ -96,6 +156,40 @@ export default function WorkspaceTaskList({
         }
     }
 
+    async function loadResult(taskId: string) {
+
+        try {
+
+            setLoadingResultTaskId(taskId);
+            setError(null);
+
+            const response =
+                await api.get(
+                    `/workspace-tasks/${taskId}/result`
+                );
+
+            setResults((current) => ({
+                ...current,
+                [taskId]: response.data,
+            }));
+
+        } catch (error) {
+
+            console.error(
+                "Failed to load workspace task result",
+                error
+            );
+
+            setError(
+                "No execution result is available for this task."
+            );
+
+        } finally {
+
+            setLoadingResultTaskId(null);
+        }
+    }
+
     if (loading) {
         return (
             <div>
@@ -134,6 +228,35 @@ export default function WorkspaceTaskList({
             <h2 className="text-2xl font-bold mb-4">
                 Workspace Tasks
             </h2>
+            <div className="border rounded p-4 mb-6">
+
+                <div className="font-medium mb-2">
+                    New Engineering Task
+                </div>
+
+                <textarea
+                    value={newTask}
+                    onChange={(e) =>
+                        setNewTask(e.target.value)
+                    }
+                    placeholder="Describe the engineering task..."
+                    className="border rounded p-2 w-full min-h-24"
+                />
+
+                <button
+                    className="border rounded px-4 py-2 mt-3"
+                    onClick={createTask}
+                    disabled={
+                        creatingTask ||
+                        !newTask.trim()
+                    }
+                >
+                    {creatingTask
+                        ? "Creating..."
+                        : "Create Task"}
+                </button>
+
+            </div>
 
             {tasks.length === 0 ? (
 
@@ -146,38 +269,78 @@ export default function WorkspaceTaskList({
 
                 <div className="space-y-3">
 
-                    {tasks.map((task) => (
+                    {tasks.map((task) => {
 
-                        <div
-                            key={task.id}
-                            className="border rounded p-4"
-                        >
+                        const result =
+                            results[task.id];
 
-                            <div className="font-medium">
-                                {task.task}
-                            </div>
-
-                            <div className="text-sm mt-2">
-                                Status: {task.status}
-                            </div>
-
-                            <button
-                                className="mt-3 border rounded px-3 py-1"
-                                onClick={() =>
-                                    executeTask(task.id)
-                                }
-                                disabled={
-                                    executingTaskId === task.id
-                                }
+                        return (
+                            <div
+                                key={task.id}
+                                className="border rounded p-4"
                             >
-                                {executingTaskId === task.id
-                                    ? "Executing..."
-                                    : "Execute"}
-                            </button>
 
-                        </div>
+                                <div className="font-medium">
+                                    {task.task}
+                                </div>
 
-                    ))}
+                                <div className="text-sm mt-2">
+                                    Status: {task.status}
+                                </div>
+
+                                <div className="flex gap-2 mt-3">
+
+                                    <button
+                                        className="border rounded px-3 py-1"
+                                        onClick={() =>
+                                            executeTask(task.id)
+                                        }
+                                        disabled={
+                                            executingTaskId === task.id
+                                        }
+                                    >
+                                        {executingTaskId === task.id
+                                            ? "Executing..."
+                                            : "Execute"}
+                                    </button>
+
+                                    {task.status === "COMPLETED" && (
+                                        <button
+                                            className="border rounded px-3 py-1"
+                                            onClick={() =>
+                                                loadResult(task.id)
+                                            }
+                                            disabled={
+                                                loadingResultTaskId ===
+                                                task.id
+                                            }
+                                        >
+                                            {loadingResultTaskId ===
+                                            task.id
+                                                ? "Loading..."
+                                                : "View Result"}
+                                        </button>
+                                    )}
+
+                                </div>
+
+                                {result && (
+                                    <div className="mt-4">
+
+                                        <div className="font-medium mb-2">
+                                            Execution Result
+                                        </div>
+
+                                        <pre className="border rounded p-3 whitespace-pre-wrap overflow-auto">
+                                            {result.output}
+                                        </pre>
+
+                                    </div>
+                                )}
+
+                            </div>
+                        );
+                    })}
 
                 </div>
             )}

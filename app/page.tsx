@@ -131,7 +131,7 @@ export default function Home() {
 
                 {activePanel === "tasks" && (
                     <WorkspaceTaskList
-                        workspaceId="workspace-ui-001"
+                        workspaceId="workspace-petclinic-001"
                     />
                 )}
 
