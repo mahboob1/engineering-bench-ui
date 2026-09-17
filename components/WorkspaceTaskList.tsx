@@ -60,7 +60,6 @@ export default function WorkspaceTaskList({
         await api.post(
             "/workspace-tasks",
             {
-                id: taskId,
                 workspaceId: workspaceId,
                 task: newTask.trim(),
             }
@@ -206,28 +205,17 @@ export default function WorkspaceTaskList({
         );
     }
 
-    if (error) {
-        return (
-            <div>
-
-                <h2 className="text-2xl font-bold mb-4">
-                    Workspace Tasks
-                </h2>
-
-                <p>
-                    {error}
-                </p>
-
-            </div>
-        );
-    }
-
     return (
         <div>
 
             <h2 className="text-2xl font-bold mb-4">
                 Workspace Tasks
             </h2>
+            {error && (
+                <div className="border rounded p-3 mb-4">
+                    {error}
+                </div>
+            )}
             <div className="border rounded p-4 mb-6">
 
                 <div className="font-medium mb-2">
