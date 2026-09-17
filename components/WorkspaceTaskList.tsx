@@ -1,11 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import api from "@/lib/api";
 
 import {
     WorkspaceTask,
 } from "@/types/workspace-task";
+
+import {
+    ExecutionEvent,
+} from "@/types/execution-event";
 
 interface WorkspaceTaskListProps {
     workspaceId: string;
@@ -38,53 +42,57 @@ export default function WorkspaceTaskList({
     const [loadingResultTaskId, setLoadingResultTaskId] =
         useState<string | null>(null);
 
-    const [newTask, setNewTask] = useState("");
+    const [newTask, setNewTask] =
+        useState("");
 
     const [creatingTask, setCreatingTask] =
         useState(false);
 
+    const [events, setEvents] =
+        useState<Record<string, ExecutionEvent[]>>({});
+
+    const pollingRef =
+        useRef<NodeJS.Timeout | null>(null);
+
     async function createTask() {
 
-    if (!newTask.trim()) {
-        return;
+        if (!newTask.trim()) {
+            return;
+        }
+
+        try {
+
+            setCreatingTask(true);
+            setError(null);
+
+            await api.post(
+                "/workspace-tasks",
+                {
+                    workspaceId: workspaceId,
+                    task: newTask.trim(),
+                }
+            );
+
+            setNewTask("");
+
+            await loadTasks();
+
+        } catch (error) {
+
+            console.error(
+                "Failed to create workspace task",
+                error
+            );
+
+            setError(
+                "Failed to create workspace task."
+            );
+
+        } finally {
+
+            setCreatingTask(false);
+        }
     }
-
-    try {
-
-        setCreatingTask(true);
-        setError(null);
-
-        const taskId =
-            `task-${Date.now()}`;
-
-        await api.post(
-            "/workspace-tasks",
-            {
-                workspaceId: workspaceId,
-                task: newTask.trim(),
-            }
-        );
-
-        setNewTask("");
-
-        await loadTasks();
-
-    } catch (error) {
-
-        console.error(
-            "Failed to create workspace task",
-            error
-        );
-
-        setError(
-            "Failed to create workspace task."
-        );
-
-    } finally {
-
-        setCreatingTask(false);
-    }
-}
 
     async function loadTasks() {
 
@@ -123,6 +131,89 @@ export default function WorkspaceTaskList({
 
     }, [workspaceId]);
 
+    async function loadEvents(taskId: string) {
+
+        try {
+
+            const response =
+                await api.get(
+                    `/workspace-tasks/${taskId}/events`
+                );
+
+            setEvents((current) => ({
+                ...current,
+                [taskId]: response.data,
+            }));
+
+            return response.data as ExecutionEvent[];
+
+        } catch (error) {
+
+            console.error(
+                "Failed to load execution events",
+                error
+            );
+
+            return [];
+        }
+    }
+
+    function stopPolling() {
+
+        if (pollingRef.current) {
+
+            clearInterval(
+                pollingRef.current
+            );
+
+            pollingRef.current = null;
+        }
+    }
+
+    function startPolling(taskId: string) {
+
+        stopPolling();
+
+        loadEvents(taskId);
+
+        pollingRef.current =
+            setInterval(async () => {
+
+                const currentEvents =
+                    await loadEvents(taskId);
+
+                const completed =
+                    currentEvents.some(
+                        (event) =>
+                            event.type ===
+                            "TASK_COMPLETED"
+                    );
+
+                const failed =
+                    currentEvents.some(
+                        (event) =>
+                            event.type ===
+                            "TASK_FAILED"
+                    );
+
+                if (completed || failed) {
+
+                    stopPolling();
+
+                    await loadTasks();
+                }
+
+            }, 1000);
+    }
+
+    useEffect(() => {
+
+        return () => {
+            stopPolling();
+        };
+
+    }, []);
+
     async function executeTask(taskId: string) {
 
         try {
@@ -130,9 +221,26 @@ export default function WorkspaceTaskList({
             setExecutingTaskId(taskId);
             setError(null);
 
+            /*
+             * Start polling immediately.
+             *
+             * The backend /execute endpoint is currently
+             * synchronous, so this request will remain
+             * pending until execution completes.
+             *
+             * Polling allows the UI to observe the events
+             * while that execution is taking place.
+             */
+            startPolling(taskId);
+
             await api.post(
                 `/workspace-tasks/${taskId}/execute`
             );
+
+            /*
+             * Make sure we have the final events.
+             */
+            await loadEvents(taskId);
 
             await loadTasks();
 
@@ -147,9 +255,12 @@ export default function WorkspaceTaskList({
                 "Failed to execute workspace task."
             );
 
+            await loadEvents(taskId);
             await loadTasks();
 
         } finally {
+
+            stopPolling();
 
             setExecutingTaskId(null);
         }
@@ -189,7 +300,51 @@ export default function WorkspaceTaskList({
         }
     }
 
+    function eventIcon(type: string) {
+
+        switch (type) {
+
+            case "TASK_STARTED":
+                return "▶";
+
+            case "AGENT_DECISION":
+                return "◆";
+
+            case "TOOL_STARTED":
+                return "→";
+
+            case "TOOL_COMPLETED":
+                return "✓";
+
+            case "DIAGNOSIS":
+                return "●";
+
+            case "TASK_COMPLETED":
+                return "✓";
+
+            case "TASK_FAILED":
+                return "✕";
+
+            default:
+                return "•";
+        }
+    }
+
+    function formatEventTime(timestamp: string) {
+
+        try {
+
+            return new Date(timestamp)
+                .toLocaleTimeString();
+
+        } catch {
+
+            return timestamp;
+        }
+    }
+
     if (loading) {
+
         return (
             <div>
 
@@ -211,11 +366,13 @@ export default function WorkspaceTaskList({
             <h2 className="text-2xl font-bold mb-4">
                 Workspace Tasks
             </h2>
+
             {error && (
                 <div className="border rounded p-3 mb-4">
                     {error}
                 </div>
             )}
+
             <div className="border rounded p-4 mb-6">
 
                 <div className="font-medium mb-2">
@@ -249,8 +406,7 @@ export default function WorkspaceTaskList({
             {tasks.length === 0 ? (
 
                 <p>
-                    No tasks have been created
-                    for this workspace.
+                    No tasks have been created for this workspace.
                 </p>
 
             ) : (
@@ -262,7 +418,14 @@ export default function WorkspaceTaskList({
                         const result =
                             results[task.id];
 
+                        const taskEvents =
+                            events[task.id] ?? [];
+
+                        const isExecuting =
+                            executingTaskId === task.id;
+
                         return (
+
                             <div
                                 key={task.id}
                                 className="border rounded p-4"
@@ -284,19 +447,23 @@ export default function WorkspaceTaskList({
                                             executeTask(task.id)
                                         }
                                         disabled={
-                                            executingTaskId === task.id
+                                            isExecuting
                                         }
                                     >
-                                        {executingTaskId === task.id
+                                        {isExecuting
                                             ? "Executing..."
                                             : "Execute"}
                                     </button>
 
-                                    {task.status === "COMPLETED" && (
+                                    {task.status ===
+                                        "COMPLETED" && (
+
                                         <button
                                             className="border rounded px-3 py-1"
                                             onClick={() =>
-                                                loadResult(task.id)
+                                                loadResult(
+                                                    task.id
+                                                )
                                             }
                                             disabled={
                                                 loadingResultTaskId ===
@@ -312,7 +479,58 @@ export default function WorkspaceTaskList({
 
                                 </div>
 
+                                {taskEvents.length > 0 && (
+
+                                    <div className="mt-5">
+
+                                        <div className="font-medium mb-3">
+                                            Execution Timeline
+                                        </div>
+
+                                        <div className="space-y-2">
+
+                                            {taskEvents.map(
+                                                (event) => (
+
+                                                    <div
+                                                        key={event.id}
+                                                        className="flex items-start gap-3 text-sm"
+                                                    >
+
+                                                        <div className="w-5 text-center">
+                                                            {eventIcon(
+                                                                event.type
+                                                            )}
+                                                        </div>
+
+                                                        <div className="flex-1">
+
+                                                            <div>
+                                                                {event.message}
+                                                            </div>
+
+                                                            <div className="text-xs opacity-60">
+                                                                Iteration{" "}
+                                                                {event.iteration}
+                                                                {" · "}
+                                                                {formatEventTime(
+                                                                    event.timestamp
+                                                                )}
+                                                            </div>
+
+                                                        </div>
+
+                                                    </div>
+                                                )
+                                            )}
+
+                                        </div>
+
+                                    </div>
+                                )}
+
                                 {result && (
+
                                     <div className="mt-4">
 
                                         <div className="font-medium mb-2">
