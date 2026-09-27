@@ -7,7 +7,7 @@ import CollectionsPanel from "@/components/CollectionPanel";
 import GithubPanel from "@/components/GithubPanel";
 import UploadPanel from "@/components/UploadPanel";
 import ChatPanel from "@/components/ChatPanel";
-import WorkspaceTaskList from "@/components/WorkspaceTaskList";
+import ProjectWorkspacePanel from "@/components/ProjectWorkspacePanel";
 
 export default function Home() {
 
@@ -130,9 +130,7 @@ export default function Home() {
                 )}
 
                 {activePanel === "tasks" && (
-                    <WorkspaceTaskList
-                        workspaceId="workspace-petclinic-001"
-                    />
+                    <ProjectWorkspacePanel />
                 )}
 
             </main>

@@ -96,34 +96,43 @@ export default function WorkspaceTaskList({
 
     async function loadTasks() {
 
-        try {
+    try {
 
-            setLoading(true);
-            setError(null);
+        setLoading(true);
+        setError(null);
 
-            const response =
-                await api.get(
-                    `/workspace-tasks/workspace/${workspaceId}`
-                );
-
-            setTasks(response.data);
-
-        } catch (error) {
-
-            console.error(
-                "Failed to load workspace tasks",
-                error
+        const response =
+            await api.get(
+                `/workspace-tasks/workspace/${workspaceId}`
             );
 
-            setError(
-                "Failed to load workspace tasks."
-            );
+        const loadedTasks =
+            response.data as WorkspaceTask[];
 
-        } finally {
+        setTasks(loadedTasks);
 
-            setLoading(false);
-        }
+        await Promise.all(
+            loadedTasks.map((task) =>
+                loadEvents(task.id)
+            )
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Failed to load workspace tasks",
+            error
+        );
+
+        setError(
+            "Failed to load workspace tasks."
+        );
+
+    } finally {
+
+        setLoading(false);
     }
+}
 
     useEffect(() => {
 
